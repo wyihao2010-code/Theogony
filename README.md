@@ -1,6 +1,8 @@
 # 神谱 · 希腊神话家族谱系
 
-一个基于 Canvas / SVG 手工绘制的交互式希腊神话家族树，纯前端单文件，无需安装、无需后端，浏览器打开即可使用。
+一个基于 Canvas / SVG 手工绘制的交互式希腊神话家族树，纯前端单文件实现，无需安装、无需后端。
+
+🔗 **在线访问：[https://wyihao2010-code.github.io/Theogony/](https://wyihao2010-code.github.io/Theogony/)**
 
 ---
 
@@ -67,7 +69,9 @@
 
 ## 打开方式
 
-直接用浏览器打开即可，建议使用 Chrome / Edge / Safari 等现代浏览器以获得最佳字体渲染与动效体验（页面使用了 Noto Serif SC / Noto Sans SC / Cormorant Garamond 等 Google Fonts 字体，联网环境下加载效果更佳，断网时会自动回退到系统字体）。
+直接访问在线地址即可：**[https://wyihao2010-code.github.io/Theogony/](https://wyihao2010-code.github.io/Theogony/)**
+
+建议使用 Chrome / Edge / Safari 等现代浏览器以获得最佳字体渲染与动效体验（页面使用了 Noto Serif SC / Noto Sans SC / Cormorant Garamond 等 Google Fonts 字体，联网环境下加载效果更佳，断网时会自动回退到系统字体）。手机端可直接用浏览器打开该网址访问，无需安装任何 App。
 
 ---
 
