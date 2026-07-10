@@ -523,6 +523,12 @@
     height: 100%;
   }
 
+  .node,
+  .node * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
   .node {
     position: absolute;
     transform: translate(-50%, -50%);
@@ -920,12 +926,63 @@
     letter-spacing: 0.02em;
   }
 
+  .foot-note-toggle {
+    display: none;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--dim);
+    cursor: pointer;
+    text-align: left;
+  }
+  .foot-note-chevron {
+    flex: 0 0 auto;
+    font-size: 11px;
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+  }
+  .foot-note-toggle[aria-expanded="true"] .foot-note-chevron { transform: rotate(180deg); }
+  .foot-note-full { }
+
   /* ---------- Responsive ---------- */
 
   @media (max-width: 720px) {
     header.topbar { padding: 12px 6% 8px; }
     .legend { display: none; }
-    footer.foot-note { padding: 10px 6% 14px; }
+    footer.foot-note { padding: 8px 6% 10px; }
+
+    .foot-note-toggle { display: flex; }
+    .foot-note-full {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      margin-top: 0;
+      transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+    }
+    .foot-note-full.expanded {
+      max-height: 400px;
+      opacity: 1;
+      margin-top: 8px;
+    }
+
+    .foot-note-toggle { display: flex; }
+    .foot-note-summary {
+      font-size: 11px;
+      color: var(--gold);
+      opacity: 0.8;
+    }
+    .foot-note-full {
+      display: none;
+      margin-top: 8px;
+      max-height: 30vh;
+      overflow-y: auto;
+    }
+    .foot-note-full.expanded { display: block; }
 
     .search-wrap { width: 100%; order: -1; }
     .stats { order: 1; }
@@ -1011,9 +1068,16 @@
     </div>
   </div>
 
-  <footer class="foot-note">
-    谱系主要依据赫西俄德《神谱》（Theogony）文本顺序整理，现已覆盖卡俄斯至奥林匹斯十二主神一代及其重要延伸世代的核心脉络，含独眼巨人、百手巨人、厄瑞玻斯与妮克斯一脉、蓬托斯海神谱系、提丰与厄客德娜众怪物、阿涅摩伊四风神、卡里忒斯三女神、霍赖三女神、赫卡忒冥界三相女神一脉等主要旁支；个别人物在古典文献中存在多种版本（如阿佛洛狄忒的出身、摩伊拉与拉冬的世系归属），已在对应节点说明中标注差异与取舍。英雄谱系与更细分的水泽仙女、缪斯个体等可在此数据结构上继续扩展。
+  <footer class="foot-note" id="footNote">
+    <button class="foot-note-toggle" id="footNoteToggle" type="button" aria-expanded="false">
+      <span class="foot-note-summary">谱系说明与取材依据</span>
+      <span class="foot-note-chevron">▾</span>
+    </button>
+    <div class="foot-note-full" id="footNoteFull">
+      谱系主要依据赫西俄德《神谱》（Theogony）文本顺序整理，现已覆盖卡俄斯至奥林匹斯十二主神一代及其重要延伸世代的核心脉络，含独眼巨人、百手巨人、厄瑞玻斯与妮克斯一脉、蓬托斯海神谱系、提丰与厄客德娜众怪物、阿涅摩伊四风神、卡里忒斯三女神、霍赖三女神、赫卡忒冥界三相女神一脉等主要旁支；个别人物在古典文献中存在多种版本（如阿佛洛狄忒的出身、摩伊拉与拉冬的世系归属），已在对应节点说明中标注差异与取舍。英雄谱系与更细分的水泽仙女、缪斯个体等可在此数据结构上继续扩展。
+    </div>
   </footer>
+
 
 <script>
 /* =========================================================
@@ -1812,6 +1876,7 @@ function buildTooltip(id) {
 }
 
 let pinnedId = null;
+let longPressJustFired = false; // 触屏长按刚触发过详情面板时短暂置真，供 contextmenu 判断是否需要跳过，避免重复触发
 
 function applyHighlight(id) {
   const rel = id ? relatedIds(id) : null;
@@ -2089,7 +2154,16 @@ function initDetailPanel() {
   const overlay = document.getElementById('detailOverlay');
   const layer = document.getElementById('nodes');
 
+  // 阻止长按选中文字：selectstart 是浏览器文本选择动作的真正起点事件，
+  // 在这里 preventDefault 才能真正阻止选中发生（contextmenu 触发时选中往往已经完成）
+  layer.addEventListener('selectstart', e => {
+    if (e.target.closest('.node')) e.preventDefault();
+  });
+
   layer.addEventListener('contextmenu', e => {
+    // 触屏端的等效手势已由下方 pointerdown 长按计时器处理并刚刚触发过，
+    // 此处跳过，避免二者在触屏上同时触发 openDetailPanel
+    if (longPressJustFired) { e.preventDefault(); return; }
     const btn = e.target.closest('.node');
     if (!btn) return;
     e.preventDefault();
@@ -2189,26 +2263,35 @@ function initInteractions() {
 
   // 长按呼出详情面板：桌面端已有右键(contextmenu)，但触屏设备的 contextmenu
   // 触发时机因浏览器而异、不可靠，因此显式实现一套长按检测作为触屏端的等效手势。
+  //
+  // 关键设计：达到长按阈值时只做标记 + 震动反馈，并不立即弹出面板；
+  // 面板改为等手指真正抬起(pointerup)时才打开。这样面板出现的那一刻手指已经
+  // 离开屏幕，物理上不存在"手指仍停留在刚渲染出的正文文字上，被系统重新
+  // 识别为一次新的长按选中"的可能——比事后用遮罩/CSS 拦截更彻底。
   let longPressTimer = null;
   let longPressStartX = 0, longPressStartY = 0;
-  let longPressFired = false;
-  const LONG_PRESS_MS = 480;
+  let longPressFired = false;   // 已达到长按阈值，等待手指抬起后打开面板
+  let longPressOpenedId = null; // 达到阈值时记录目标节点 id
+  const LONG_PRESS_MS = 650;    // 适当延长，减少与系统长按选择判定窗口重叠的概率
   const LONG_PRESS_MOVE_TOLERANCE = 10;
 
   layer.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse') return; // 鼠标已有右键路径，长按只服务触屏/触控笔
     const btn = e.target.closest('.node');
     if (!btn) return;
+    // 阻止移动端浏览器原生的长按选中文字/系统菜单(复制/粘贴/分享)
+    e.preventDefault();
     longPressFired = false;
+    longPressOpenedId = null;
     longPressStartX = e.clientX;
     longPressStartY = e.clientY;
+
     longPressTimer = setTimeout(() => {
       longPressFired = true;
-      hideTooltip();
-      openDetailPanel(btn.dataset.id);
-      if (navigator.vibrate) navigator.vibrate(12);
+      longPressOpenedId = btn.dataset.id;
+      if (navigator.vibrate) navigator.vibrate(12); // 达到阈值时先给触觉反馈，提示"松手即可查看详情"
     }, LONG_PRESS_MS);
-  });
+  }, { passive: false });
 
   function cancelLongPress() {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
@@ -2220,8 +2303,18 @@ function initInteractions() {
     if (dx > LONG_PRESS_MOVE_TOLERANCE || dy > LONG_PRESS_MOVE_TOLERANCE) cancelLongPress();
   });
 
-  layer.addEventListener('pointerup', () => cancelLongPress());
-  layer.addEventListener('pointercancel', () => cancelLongPress());
+  layer.addEventListener('pointerup', () => {
+    cancelLongPress();
+    // 手指此刻已抬起，面板打开时不会再有触摸残留在正文上
+    if (longPressFired && longPressOpenedId) {
+      hideTooltip();
+      openDetailPanel(longPressOpenedId);
+      longPressJustFired = true;
+      setTimeout(() => { longPressJustFired = false; }, 600);
+    }
+    longPressOpenedId = null;
+  });
+  layer.addEventListener('pointercancel', () => { cancelLongPress(); longPressFired = false; longPressOpenedId = null; });
 
   // 长按已经触发详情面板时，同一次触摸抬起不应再被 click 处理器当作一次普通点击
   // （否则会在关闭详情面板的同时又切换一次 pin 高亮状态，产生错乱）。
@@ -2416,6 +2509,11 @@ function updateMinimapViewport() {
   const viewport = document.getElementById('viewport');
   if (!box || !viewport) return;
 
+  // 移动端 minimap 整体隐藏(display:none)时，读取 clientWidth 仍会强制触发布局回流，
+  // 在高频 pointermove 拖拽中就是卡顿/跳动的根源，此处直接跳过
+  const minimapEl = document.getElementById('minimap') || box.closest('.minimap');
+  if (minimapEl && minimapEl.offsetParent === null) return;
+
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
 
   // 视口在画布坐标系中的可见范围 -> 换算到 minimap 像素坐标
@@ -2470,10 +2568,28 @@ function initMinimap() {
   window.addEventListener('resize', () => updateMinimapViewport());
 }
 
+function initFootNoteToggle() {
+  const toggle = document.getElementById('footNoteToggle');
+  const full = document.getElementById('footNoteFull');
+  if (!toggle || !full) return;
+
+  toggle.addEventListener('click', () => {
+    const expanded = full.classList.toggle('expanded');
+    toggle.setAttribute('aria-expanded', String(expanded));
+  });
+}
+
 function initHeaderToggle() {
   const topbar = document.getElementById('topbar');
   const toggle = document.getElementById('headerToggle');
   const body = document.getElementById('headerBody');
+
+  // 移动端默认收起表头，节省小屏空间；与 CSS 的 720px 断点保持一致
+  if (window.matchMedia('(max-width: 720px)').matches) {
+    topbar.classList.add('collapsed');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', '展开表头');
+  }
 
   toggle.addEventListener('click', () => {
     const collapsed = topbar.classList.toggle('collapsed');
@@ -2503,29 +2619,109 @@ function initPanZoom() {
   let dragging = false;
   let dragMoved = false;
   let startX = 0, startY = 0, startViewX = 0, startViewY = 0;
+  let activePointerId = null;
+  let pendingMove = null;
+  let rafId = null;
+
+  // 多指追踪：pointerId -> {x, y}，用于双指缩放(pinch-zoom)
+  const activePointers = new Map();
+  let pinching = false;
+  let pinchStartDist = 0;
+  let pinchStartScale = 1;
+  let pinchMidX = 0, pinchMidY = 0;
+
+  function distance(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  }
+  function midpoint(p1, p2) {
+    return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  }
+
+  function cancelSingleDrag() {
+    dragging = false;
+    activePointerId = null;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    pendingMove = null;
+    viewport.classList.remove('grabbing');
+  }
 
   viewport.addEventListener('pointerdown', e => {
     if (e.target.closest('.node') || e.target.closest('.zoom-controls')) return;
+
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    viewport.setPointerCapture(e.pointerId);
+
+    if (activePointers.size === 2) {
+      // 第二指落下：切换到双指缩放模式，取消单指拖拽状态避免二者打架导致画面跳动
+      cancelSingleDrag();
+      const [p1, p2] = [...activePointers.values()];
+      pinching = true;
+      pinchStartDist = distance(p1, p2);
+      pinchStartScale = view.scale;
+      const mid = midpoint(p1, p2);
+      pinchMidX = mid.x; pinchMidY = mid.y;
+      return;
+    }
+
+    if (activePointers.size > 2) return; // 三指及以上不处理
+
+    // 单指：忽略非主指针，避免多点触控时触发跳变
+    if (activePointerId !== null) return;
+    if (!e.isPrimary) return;
+    activePointerId = e.pointerId;
     dragging = true;
     dragMoved = false;
     startX = e.clientX; startY = e.clientY;
     startViewX = view.x; startViewY = view.y;
     viewport.classList.add('grabbing');
-    viewport.setPointerCapture(e.pointerId);
   });
 
   viewport.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const dx = e.clientX - startX, dy = e.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
-    view.x = startViewX + dx;
-    view.y = startViewY + dy;
-    applyView();
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pinching && activePointers.size === 2) {
+      const [p1, p2] = [...activePointers.values()];
+      const dist = distance(p1, p2);
+      if (pinchStartDist > 0) {
+        const factor = (dist / pinchStartDist) * (pinchStartScale / view.scale);
+        const mid = midpoint(p1, p2);
+        zoomAt(factor, mid.x, mid.y);
+      }
+      return;
+    }
+
+    if (!dragging || e.pointerId !== activePointerId) return;
+    pendingMove = e;
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      if (!pendingMove || !dragging) return;
+      const dx = pendingMove.clientX - startX, dy = pendingMove.clientY - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+      view.x = startViewX + dx;
+      view.y = startViewY + dy;
+      applyView();
+      pendingMove = null;
+    });
   });
 
   function endDrag(e) {
-    if (!dragging) return;
+    activePointers.delete(e.pointerId);
+
+    if (pinching) {
+      if (activePointers.size < 2) {
+        pinching = false;
+        // 若还剩一指，不自动转为拖拽，等待该指抬起后重新按下，避免锚点跳变
+      }
+      return;
+    }
+
+    if (!dragging || e.pointerId !== activePointerId) return;
     dragging = false;
+    activePointerId = null;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    pendingMove = null;
     viewport.classList.remove('grabbing');
     // 纯点击（未拖动）且点在空白处 → 取消高亮/固定
     if (!dragMoved && e.target === viewport) {
@@ -2864,6 +3060,7 @@ function init() {
   initLegendFilter();
   initMinimap();
   initHeaderToggle();
+  initFootNoteToggle();
   focusDefaultView();
 }
 
