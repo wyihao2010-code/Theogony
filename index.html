@@ -2040,7 +2040,9 @@ let MYTH_NAME_TO_ID = null;
 // 少数专有名词恰好以某位神祇的姓名开头（如“刻耳柏洛斯”内含“刻耳”、
 // “阿波罗尼俄斯”内含“阿波罗”、“赫拉克勒斯”内含“赫拉”），
 // 它们本身并非该神祇，需在匹配时优先整体识别、排除误链接。
-const MYTH_LINK_EXCLUDE_TERMS = ['刻耳柏洛斯', '阿波罗尼俄斯', '赫拉克勒斯'];
+// “潘多拉”并非图中独立节点（本谱系未单列此人），但其名以“潘”字开头，
+// 会被误判并只把“潘”字链接到牧神“潘”的词条，需一并加入排除表。
+const MYTH_LINK_EXCLUDE_TERMS = ['刻耳柏洛斯', '阿波罗尼俄斯', '赫拉克勒斯', '潘多拉'];
 
 function ensureMythNamePattern() {
   if (MYTH_NAME_PATTERN) return;
