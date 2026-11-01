@@ -23,6 +23,10 @@ class SiteTest(unittest.TestCase):
         self.assertIn('./heroes.html', links('index.html'))
         for page in ('gods.html', 'heroes.html'):
             self.assertTrue((ROOT / page).is_file())
+    def test_every_page_links_back_to_portfolio(self):
+        for page in ('index.html', 'gods.html', 'heroes.html'):
+            self.assertIn('https://wyihao2010-code.github.io/portfolio/', links(page), page)
+
     def test_genealogies_link_to_portal_and_each_other(self):
         self.assertIn('./index.html', links('gods.html'))
         self.assertIn('./heroes.html', links('gods.html'))
